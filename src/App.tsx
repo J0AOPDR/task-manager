@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-const validar  = z.object({
+const validar = z.object({
   nomeTarefa: z.string().min(1, "O campo é obrigatório!"),
   descTarefa: z.string().min(1, "O campo é obrigatório!"),
 });
@@ -30,30 +30,37 @@ export function App() {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [modalAberto, setModalAberto] = useState(false);
   const [tarefaEditando, setTarefaEditando] = useState<Tarefa | null>(null);
-  const [filtroProgresso, setFiltroProgresso] = useState("todos");
+  const [filtroProgresso, setFiltroProgresso] = useState<string>("todos");
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(validar),
-  });
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<FormData>({ resolver: zodResolver(validar) });
 
   useEffect(() => {
     const tarefasSalvas = localStorage.getItem("tarefas");
     if (tarefasSalvas) {
       try {
         const dados = JSON.parse(tarefasSalvas);
-        if (Array.isArray(dados)) setTarefas(dados);
-      } catch {
-        console.error("Erro ao carregar tarefas do localStorage");
+        if (Array.isArray(dados)) {
+          setTarefas(dados);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar tarefas do localStorage:", error);
       }
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("tarefas", JSON.stringify(tarefas));
+    if (tarefas.length > 0) {
+      localStorage.setItem("tarefas", JSON.stringify(tarefas));
+    }
   }, [tarefas]);
 
   function adicionarTarefa(data: FormData) {
-    const novaTarefa = {
+    const novaTarefa: Tarefa = {
       id: Date.now(),
       nome: data.nomeTarefa,
       descricao: data.descTarefa,
@@ -61,12 +68,21 @@ export function App() {
       progresso: "Pendente",
     };
 
-    setTarefas((prev) => [...prev, novaTarefa]);
+    setTarefas((prev) => {
+      const novasTarefas = [...prev, novaTarefa];
+      localStorage.setItem("tarefas", JSON.stringify(novasTarefas));
+      return novasTarefas;
+    });
+
     reset();
   }
 
   function removerTarefa(id: number) {
-    setTarefas((prev) => prev.filter((tarefa) => tarefa.id !== id));
+    setTarefas((prev) => {
+      const novasTarefas = prev.filter((tarefa) => tarefa.id !== id);
+      localStorage.setItem("tarefas", JSON.stringify(novasTarefas));
+      return novasTarefas;
+    });
   }
 
   function abrirModalEdicao(tarefa: Tarefa) {
@@ -78,22 +94,22 @@ export function App() {
     event.preventDefault();
     if (!tarefaEditando) return;
 
-    setTarefas((prev) =>
-      prev.map((t) => (t.id === tarefaEditando.id ? { ...tarefaEditando } : t))
-    );
+    setTarefas((prev) => {
+      const tarefasAtualizadas = prev.map((t) =>
+        t.id === tarefaEditando.id ? { ...t, ...tarefaEditando } : t
+      );
+      localStorage.setItem("tarefas", JSON.stringify(tarefasAtualizadas));
+      return tarefasAtualizadas;
+    });
 
     setModalAberto(false);
     setTarefaEditando(null);
   }
 
-  const tarefasFiltradas =
-    filtroProgresso === "todos"
-      ? tarefas
-      : tarefas.filter((tarefa) => tarefa.progresso === filtroProgresso);
+  const tarefasFiltradas = filtroProgresso === "todos" ? tarefas : tarefas.filter((tarefa) => tarefa.progresso === filtroProgresso);
 
   return (
     <div className="flex flex-col justify-center items-center min-h-screen bg-zinc-100 gap-8 p-4">
-      {/* Formulário de criação */}
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <CardTitle className="text-xl text-center">Criar Tarefa</CardTitle>
@@ -115,7 +131,6 @@ export function App() {
         </CardContent>
       </Card>
 
-      {/* Lista de tarefas */}
       <Card className="w-full max-w-2xl">
         <CardContent>
           <div className="mb-4">
@@ -154,7 +169,6 @@ export function App() {
         </CardContent>
       </Card>
 
-      {/* Modal de edição */}
       {tarefaEditando && (
         <Dialog open={modalAberto} onOpenChange={setModalAberto}>
           <DialogContent>
